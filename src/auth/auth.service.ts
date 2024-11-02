@@ -9,6 +9,7 @@ import { randomBytes, scrypt as _scrypt } from 'crypto';
 import { promisify } from 'util';
 import { SignInUserDto } from './dtos/sign-in-user.dto';
 import { JwtService } from '@nestjs/jwt';
+import { RedisService } from 'src/redis/redis.service';
 
 const scrypt = promisify(_scrypt);
 
@@ -17,6 +18,7 @@ export class AuthService {
   constructor(
     private userService: UsersService,
     private jwtService: JwtService,
+    private redisService: RedisService,
   ) {}
 
   async signup(userData: CreateUserDto) {
@@ -46,9 +48,10 @@ export class AuthService {
     await this.verifyPassword(password, user.password);
 
     const payload = { sub: user.id, username: user.username };
-    return {
-      accessToken: await this.jwtService.signAsync(payload),
-    };
+    const accessToken = await this.jwtService.signAsync(payload);
+    await this.redisService.setValue(`token:${user.username}`, accessToken);
+
+    return { accessToken };
   }
 
   private async hashPassword(password: string) {
