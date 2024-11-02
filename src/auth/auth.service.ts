@@ -8,27 +8,33 @@ import { UsersService } from 'src/users/users.service';
 import { randomBytes, scrypt as _scrypt } from 'crypto';
 import { promisify } from 'util';
 import { SignInUserDto } from './dtos/sign-in-user.dto';
+import { JwtService } from '@nestjs/jwt';
 
 const scrypt = promisify(_scrypt);
 
 @Injectable()
 export class AuthService {
-  constructor(private userService: UsersService) {}
+  constructor(
+    private userService: UsersService,
+    private jwtService: JwtService,
+  ) {}
 
   async signup(userData: CreateUserDto) {
-    const user = await this.userService.findByUsername(userData.username);
-    if (user) {
+    const existedUser = await this.userService.findByUsername(
+      userData.username,
+    );
+    if (existedUser) {
       throw new BadRequestException('Username already in use');
     }
 
     const hashedPassword = await this.hashPassword(userData.password);
 
-    return (
-      await this.userService.create({
-        ...userData,
-        password: hashedPassword,
-      })
-    )[0];
+    const [user] = await this.userService.create({
+      ...userData,
+      password: hashedPassword,
+    });
+
+    return user;
   }
 
   async signin({ username, password }: SignInUserDto) {
@@ -43,7 +49,10 @@ export class AuthService {
       throw new BadRequestException('Password incorrect');
     }
 
-    return user;
+    const payload = { sub: user.id, username: user.username };
+    return {
+      accessToken: await this.jwtService.signAsync(payload),
+    };
   }
 
   private async hashPassword(password: string) {
