@@ -43,11 +43,7 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
-    const [salt, storedHash] = user.password.split('.');
-    const hash = (await scrypt(password, salt, 32)) as Buffer;
-    if (storedHash !== hash.toString('hex')) {
-      throw new BadRequestException('Password incorrect');
-    }
+    await this.verifyPassword(password, user.password);
 
     const payload = { sub: user.id, username: user.username };
     return {
@@ -60,5 +56,13 @@ export class AuthService {
     const hash = (await scrypt(password, salt, 32)) as Buffer;
 
     return `${salt}.${hash.toString('hex')}`;
+  }
+
+  private async verifyPassword(password: string, storedPassword: string) {
+    const [salt, storedHash] = storedPassword.split('.');
+    const hash = (await scrypt(password, salt, 32)) as Buffer;
+    if (storedHash !== hash.toString('hex')) {
+      throw new BadRequestException('Password incorrect');
+    }
   }
 }
