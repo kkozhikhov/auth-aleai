@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { CreateUserDto } from './dtos/create-user.dto';
@@ -15,6 +16,8 @@ const scrypt = promisify(_scrypt);
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private userService: UsersService,
     private jwtService: JwtService,
@@ -36,6 +39,8 @@ export class AuthService {
       password: hashedPassword,
     });
 
+    this.logger.log(`${user.username} registration has been successful`);
+
     return user;
   }
 
@@ -50,6 +55,8 @@ export class AuthService {
     const payload = { sub: user.id, username: user.username };
     const accessToken = await this.jwtService.signAsync(payload);
     await this.redisService.setValue(`token:${user.username}`, accessToken);
+
+    this.logger.log(`Login was successful for ${user.username}`);
 
     return { accessToken };
   }
